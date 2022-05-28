@@ -248,7 +248,7 @@ const TokenPrice: React.FC<TokenProps> = (props) => {
                     } catch (error) { }
                 }
             }
-        })
+        })()
 
     }, [tokenBalances]);
     return <></>;
