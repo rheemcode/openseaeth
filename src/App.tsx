@@ -61,7 +61,7 @@ const Navbar = () => {
 
         </div>
 
-        <div className="flex gap-6 self-center">
+        <div className="flex gap-6 self-center md:hidden">
           <div>
             <span className="material-symbols-rounded text-3xl text-slate-600 font-semibold">
               search
@@ -81,7 +81,7 @@ const Navbar = () => {
 const HomeJumbotron = () => {
   return (
     <div className="relative">
-      <div className='absolute h-full w-full bg-cover blur-md jumbotron opacity-25' style={{ backgroundImage: `url(${process.env.PUBLIC_URL + "media/nft.png"})` }}>
+      <div className='absolute h-full w-full bg-cover blur-md jumbotron opacity-25 -z-10' style={{ backgroundImage: `url(${process.env.PUBLIC_URL + "media/nft.png"})` }}>
 
       </div>
       <div className="md:flex container mx-auto py-12">
@@ -125,9 +125,9 @@ function App() {
   })
   return (
     <div className="App overflow-x-hidden">
-      <EthApp />
       <Navbar />
-      <HomeJumbotron />
+      <EthApp />
+
       <div className="py-6">
         <div className="text-center md:text-2xl text-lg font-semibold">
           Notable Drops
