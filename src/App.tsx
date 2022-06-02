@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import Plyr from 'plyr';
-import EthApp from './Account';
+import EthApp from './EthApp';
 
 
 const Navbar = () => {
