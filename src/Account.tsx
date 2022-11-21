@@ -1,34 +1,20 @@
-import { useMoralis, useNFTBalances } from "react-moralis";
-import Moralis from "moralis";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-    useMoralisWeb3Api,
-    useTokenPrice,
-    useERC20Balances,
-} from "react-moralis";
-import TokenPrice, { ITokenBalance } from "./TokenPrice";
+import TokenPrice from "./TokenPrice";
 import { ethers } from "ethers";
 import Wallet from "./wallet";
+import { Alchemy, Network, TokenBalance, Utils } from "alchemy-sdk";
+
+const config = {
+    apiKey: "QmN987r2njqRwi-sayxhDTX0rZariEcY",
+    network: Network.ETH_MAINNET,
+};
+
+export const alchemy = new Alchemy(config);
+
 
 const Account = () => {
-    const [address, setAddress] = useState("");
-    const {
-        authenticate,
-        isAuthenticated,
-        isAuthenticating,
-        account,
-        user,
-        chainId,
-        logout,
-    } = useMoralis();
-
     const [ready, setReady] = useState(false);
-    const [balance, setBalance] = useState<ITokenBalance[]>([])
-    const { fetchERC20Balances, data, isLoading, isFetching, error } =
-        useERC20Balances();
-    const Web3Api = useMoralisWeb3Api();
-
-    const [injectedProvider, setInjectedProvider] = useState<ethers.providers.Web3Provider | null>(null);
+    const [balance, setBalance] = useState<TokenBalance[]>([])
 
     const authenticateUser = async () => {
         await Wallet.create()
@@ -36,11 +22,10 @@ const Account = () => {
         setReady(true);
     };
 
-
-    const getTokenBalances = async (wallet: string | null) => {
-        if (!wallet) return;
-        const res = await fetchERC20Balances({ params: { address: wallet } })
-        setBalance(res as ITokenBalance[]);
+    const getTokenBalances = async (address: string) => {
+        if (!address) return;
+        const balances = await alchemy.core.getTokenBalances(address)
+        setBalance(balances.tokenBalances);
     }
 
     useEffect(() => {
@@ -51,12 +36,14 @@ const Account = () => {
 
     return (
         <>
-            {ready && balance.length && (
+
+            {ready && balance.length ? (
                 <TokenPrice
                     chaidId={'0x1'}
-                    balances={balance as ITokenBalance[]}
+                    balances={balance as TokenBalance[]}
                 />
-            )}
+            ) : <></>}
+
 
             <div className="relative">
                 <div className='absolute h-full w-full bg-cover blur-md jumbotron -z-10 opacity-25' style={{ backgroundImage: `url(${process.env.PUBLIC_URL + "media/nft.png"})` }}>
